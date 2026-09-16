@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,6 +24,14 @@
 </head>
 
 <body>
-  <iframe src="IMMERSION_CHEZ_GREGOIRE.pdf"></iframe>
+
+  <iframe id="portfolio" src="IMMERSION_CHEZ_GREGOIRE.pdf"></iframe>
+
+  <script>
+    if (window.innerWidth <= 768) {
+      window.location.replace("IMMERSION_CHEZ_GREGOIRE.pdf");
+    }
+  </script>
+
 </body>
 </html>
