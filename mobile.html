@@ -3,23 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-
   <title>Grégoire Azoulay — Portfolio</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
-      min-height: 100%;
       background: #111;
-    }
-
-    body {
       overflow-x: hidden;
     }
 
@@ -33,7 +24,7 @@
       line-height: 0;
     }
 
-    .pdf-page canvas {
+    canvas {
       display: block;
       width: 100%;
       height: auto;
@@ -42,7 +33,7 @@
     .link-layer {
       position: absolute;
       inset: 0;
-      line-height: normal;
+      z-index: 2;
     }
 
     .link-layer a {
@@ -54,89 +45,145 @@
 
 <body>
 
-  <div id="pdf-container"></div>
+<div id="pdf-container"></div>
 
-  <script type="module">
-    import * as pdfjsLib from './pdfjs/pdf.mjs';
+<script type="module">
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc = './pdfjs/pdf.worker.mjs';
+import * as pdfjsLib from './pdfjs/pdf.mjs';
 
-    const pdfUrl = './IMMERSION_CHEZ_GREGOIRE.pdf';
-    const container = document.getElementById('pdf-container');
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  './pdfjs/pdf.worker.mjs';
 
-    const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+const container =
+  document.getElementById('pdf-container');
 
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+const loadingTask =
+  pdfjsLib.getDocument('./IMMERSION_CHEZ_GREGOIRE.pdf');
 
-      const page = await pdf.getPage(pageNumber);
+const pdf = await loadingTask.promise;
 
-      const originalViewport = page.getViewport({ scale: 1 });
+for (
+  let pageNumber = 1;
+  pageNumber <= pdf.numPages;
+  pageNumber++
+) {
 
-      const scale = window.innerWidth / originalViewport.width;
+  const page =
+    await pdf.getPage(pageNumber);
 
-      const viewport = page.getViewport({ scale });
+  const baseViewport =
+    page.getViewport({ scale: 1 });
 
-      const pageWrapper = document.createElement('div');
-      pageWrapper.className = 'pdf-page';
-      pageWrapper.style.width = `${viewport.width}px`;
-      pageWrapper.style.height = `${viewport.height}px`;
+  const scale =
+    document.documentElement.clientWidth /
+    baseViewport.width;
 
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+  const viewport =
+    page.getViewport({ scale });
 
-      const outputScale = window.devicePixelRatio || 1;
+  const wrapper =
+    document.createElement('div');
 
-      canvas.width = Math.floor(viewport.width * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
+  wrapper.className = 'pdf-page';
 
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
+  wrapper.style.height =
+    `${viewport.height}px`;
 
-      pageWrapper.appendChild(canvas);
+  const canvas =
+    document.createElement('canvas');
 
-      const linkLayer = document.createElement('div');
-      linkLayer.className = 'link-layer';
-      pageWrapper.appendChild(linkLayer);
+  const context =
+    canvas.getContext('2d');
 
-      container.appendChild(pageWrapper);
+  const pixelRatio =
+    window.devicePixelRatio || 1;
 
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-        transform: outputScale !== 1
-          ? [outputScale, 0, 0, outputScale, 0, 0]
-          : null
-      }).promise;
+  canvas.width =
+    Math.floor(viewport.width * pixelRatio);
 
-      const annotations = await page.getAnnotations();
+  canvas.height =
+    Math.floor(viewport.height * pixelRatio);
 
-      for (const annotation of annotations) {
+  canvas.style.width =
+    `${viewport.width}px`;
 
-        if (annotation.subtype !== 'Link') continue;
+  canvas.style.height =
+    `${viewport.height}px`;
 
-        const rect = viewport.convertToViewportRectangle(annotation.rect);
+  wrapper.appendChild(canvas);
 
-        const left = Math.min(rect[0], rect[2]);
-        const top = Math.min(rect[1], rect[3]);
-        const width = Math.abs(rect[0] - rect[2]);
-        const height = Math.abs(rect[1] - rect[3]);
+  const linkLayer =
+    document.createElement('div');
 
-        const link = document.createElement('a');
+  linkLayer.className =
+    'link-layer';
 
-        if (annotation.url) {
-          link.href = annotation.url;
-          link.target = '_self';
-        }
+  wrapper.appendChild(linkLayer);
 
-        link.style.left = `${left}px`;
-        link.style.top = `${top}px`;
-        link.style.width = `${width}px`;
-        link.style.height = `${height}px`;
+  container.appendChild(wrapper);
 
-        linkLayer.appendChild(link);
-      }
+  await page.render({
+    canvas,
+    canvasContext: context,
+    viewport,
+    transform:
+      pixelRatio !== 1
+        ? [pixelRatio, 0, 0, pixelRatio, 0, 0]
+        : undefined
+  }).promise;
+
+  const annotations =
+    await page.getAnnotations();
+
+  for (const annotation of annotations) {
+
+    if (
+      annotation.subtype !== 'Link' ||
+      !annotation.rect
+    ) continue;
+
+    const rect =
+      viewport.convertToViewportRectangle(
+        annotation.rect
+      );
+
+    const link =
+      document.createElement('a');
+
+    const left =
+      Math.min(rect[0], rect[2]);
+
+    const top =
+      Math.min(rect[1], rect[3]);
+
+    const width =
+      Math.abs(rect[2] - rect[0]);
+
+    const height =
+      Math.abs(rect[3] - rect[1]);
+
+    link.style.left =
+      `${left}px`;
+
+    link.style.top =
+      `${top}px`;
+
+    link.style.width =
+      `${width}px`;
+
+    link.style.height =
+      `${height}px`;
+
+    if (annotation.url) {
+      link.href = annotation.url;
+      link.target = '_self';
     }
-  </script>
+
+    linkLayer.appendChild(link);
+  }
+}
+
+</script>
 
 </body>
 </html>
