@@ -3,173 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grégoire Azoulay — Portfolio</title>
+  <title>Diagnostic Portfolio</title>
 
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      width: 100%;
       background: #111;
-      overflow-x: hidden;
+      color: white;
+      font-family: Arial, sans-serif;
     }
 
-    #pdf-container {
-      width: 100%;
+    #status {
+      padding: 25px;
+      font-size: 16px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
-    .page {
-      position: relative;
-      width: 100%;
-      margin: 0;
-      padding: 0;
+    .ok {
+      color: #7CFF8A;
     }
 
-    canvas {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-
-    .annotation-layer {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-
-    .annotation-layer a {
-      position: absolute;
-      pointer-events: auto;
+    .error {
+      color: #FF7070;
     }
   </style>
 </head>
 
 <body>
 
-  <div id="pdf-container"></div>
+<div id="status">1 — HTML chargé ✅</div>
 
-  <script type="module">
+<script>
+  const status = document.getElementById('status');
 
-    import * as pdfjsLib from './pdfjs/pdf.mjs';
+  window.addEventListener('error', function(event) {
+    status.innerHTML +=
+      '\n\nERREUR JAVASCRIPT ❌\n' +
+      (event.message || 'Erreur inconnue') +
+      '\nFichier : ' + (event.filename || 'inconnu') +
+      '\nLigne : ' + (event.lineno || 'inconnue');
+  });
 
-    pdfjsLib.GlobalWorkerOptions.workerSrc = './pdfjs/pdf.worker.mjs';
+  window.addEventListener('unhandledrejection', function(event) {
+    status.innerHTML +=
+      '\n\nPROMESSE REJETÉE ❌\n' +
+      String(event.reason);
+  });
 
-    const container = document.getElementById('pdf-container');
+  status.innerHTML += '\n2 — JavaScript classique chargé ✅';
+</script>
 
-    const loadingTask =
-      pdfjsLib.getDocument('./IMMERSION_CHEZ_GREGOIRE.pdf');
+<script type="module">
+  const status = document.getElementById('status');
 
-    const pdf = await loadingTask.promise;
+  status.innerHTML += '\n3 — Module JavaScript chargé ✅';
 
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+  try {
 
-      const page = await pdf.getPage(pageNumber);
+    status.innerHTML += '\n4 — Tentative import PDF.js...';
 
-      const baseViewport = page.getViewport({ scale: 1 });
+    const pdfjsLib =
+      await import('./pdfjs/pdf.mjs?v=diagnostic1');
 
-      const scale =
-        document.documentElement.clientWidth /
-        baseViewport.width;
+    status.innerHTML +=
+      '\n5 — PDF.js importé ✅';
 
-      const viewport = page.getViewport({ scale });
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      './pdfjs/pdf.worker.mjs?v=diagnostic1';
 
-      const pageDiv = document.createElement('div');
-      pageDiv.className = 'page';
+    status.innerHTML +=
+      '\n6 — Worker configuré ✅';
 
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+    status.innerHTML +=
+      '\n7 — Tentative chargement PDF...';
 
-      const pixelRatio = window.devicePixelRatio || 1;
+    const pdf =
+      await pdfjsLib.getDocument(
+        './IMMERSION_CHEZ_GREGOIRE.pdf?v=diagnostic1'
+      ).promise;
 
-      canvas.width =
-        Math.floor(viewport.width * pixelRatio);
+    status.innerHTML +=
+      '\n8 — PDF chargé ✅' +
+      '\nNombre de pages : ' + pdf.numPages;
 
-      canvas.height =
-        Math.floor(viewport.height * pixelRatio);
+    status.innerHTML +=
+      '\n9 — Tentative lecture page 1...';
 
-      canvas.style.width =
-        viewport.width + 'px';
+    const page = await pdf.getPage(1);
 
-      canvas.style.height =
-        viewport.height + 'px';
+    status.innerHTML +=
+      '\n10 — PAGE 1 LUE ✅';
 
-      pageDiv.style.height =
-        viewport.height + 'px';
+    status.innerHTML +=
+      '\n\nDIAGNOSTIC TERMINÉ ✅';
 
-      pageDiv.appendChild(canvas);
+  } catch (error) {
 
-      const annotationLayer =
-        document.createElement('div');
+    status.innerHTML +=
+      '\n\nERREUR DÉTECTÉE ❌\n' +
+      'Nom : ' + (error.name || 'inconnu') +
+      '\nMessage : ' + (error.message || String(error)) +
+      '\n\n' + (error.stack || '');
 
-      annotationLayer.className =
-        'annotation-layer';
-
-      pageDiv.appendChild(annotationLayer);
-
-      container.appendChild(pageDiv);
-
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-        transform: [
-          pixelRatio,
-          0,
-          0,
-          pixelRatio,
-          0,
-          0
-        ]
-      }).promise;
-
-      const annotations =
-        await page.getAnnotations();
-
-      for (const annotation of annotations) {
-
-        if (
-          annotation.subtype !== 'Link' ||
-          !annotation.rect ||
-          !annotation.url
-        ) {
-          continue;
-        }
-
-        const rect =
-          viewport.convertToViewportRectangle(
-            annotation.rect
-          );
-
-        const left =
-          Math.min(rect[0], rect[2]);
-
-        const top =
-          Math.min(rect[1], rect[3]);
-
-        const width =
-          Math.abs(rect[2] - rect[0]);
-
-        const height =
-          Math.abs(rect[3] - rect[1]);
-
-        const link =
-          document.createElement('a');
-
-        link.href = annotation.url;
-        link.target = '_self';
-
-        link.style.left = left + 'px';
-        link.style.top = top + 'px';
-        link.style.width = width + 'px';
-        link.style.height = height + 'px';
-
-        annotationLayer.appendChild(link);
-      }
-    }
-
-  </script>
+  }
+</script>
 
 </body>
 </html>
