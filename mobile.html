@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Grégoire Azoulay — Portfolio</title>
 
   <style>
@@ -20,19 +20,15 @@
 
     #pdf-container {
       width: 100%;
-      margin: 0;
-      padding: 0;
     }
 
     .pdf-page {
       position: relative;
       width: 100%;
-      margin: 0;
-      padding: 0;
       line-height: 0;
     }
 
-    .pdf-page canvas {
+    canvas {
       display: block;
       width: 100%;
       height: auto;
@@ -41,7 +37,7 @@
     .link-layer {
       position: absolute;
       inset: 0;
-      z-index: 10;
+      z-index: 2;
     }
 
     .link-layer a {
@@ -56,65 +52,63 @@
   <div id="pdf-container"></div>
 
   <script type="module">
-
     import * as pdfjsLib from './pdfjs/pdf.mjs';
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = './pdfjs/pdf.worker.mjs';
 
     const container = document.getElementById('pdf-container');
 
-    async function loadPDF() {
+    async function renderPDF() {
 
-      const pdf = await pdfjsLib.getDocument(
-        './IMMERSION_CHEZ_GREGOIRE.pdf'
-      ).promise;
+      const loadingTask =
+        pdfjsLib.getDocument('./IMMERSION_CHEZ_GREGOIRE.pdf');
+
+      const pdf = await loadingTask.promise;
 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
 
         const page = await pdf.getPage(pageNumber);
 
-        const originalViewport = page.getViewport({ scale: 1 });
+        const baseViewport = page.getViewport({ scale: 1 });
 
-        const screenWidth = window.innerWidth;
+        const scale =
+          document.documentElement.clientWidth / baseViewport.width;
 
-        const scale = screenWidth / originalViewport.width;
+        const viewport = page.getViewport({ scale });
 
-        const viewport = page.getViewport({ scale: scale });
-
-        const pageWrapper = document.createElement('div');
-        pageWrapper.className = 'pdf-page';
-        pageWrapper.style.height = viewport.height + 'px';
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pdf-page';
+        wrapper.style.height = `${viewport.height}px`;
 
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
 
         const pixelRatio = window.devicePixelRatio || 1;
 
-        canvas.width = Math.floor(viewport.width * pixelRatio);
-        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.width =
+          Math.floor(viewport.width * pixelRatio);
 
-        canvas.style.width = viewport.width + 'px';
-        canvas.style.height = viewport.height + 'px';
+        canvas.height =
+          Math.floor(viewport.height * pixelRatio);
 
-        pageWrapper.appendChild(canvas);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+
+        wrapper.appendChild(canvas);
 
         const linkLayer = document.createElement('div');
         linkLayer.className = 'link-layer';
 
-        pageWrapper.appendChild(linkLayer);
-        container.appendChild(pageWrapper);
+        wrapper.appendChild(linkLayer);
+        container.appendChild(wrapper);
 
         await page.render({
           canvasContext: context,
           viewport: viewport,
-          transform: [
-            pixelRatio,
-            0,
-            0,
-            pixelRatio,
-            0,
-            0
-          ]
+          transform:
+            pixelRatio !== 1
+              ? [pixelRatio, 0, 0, pixelRatio, 0, 0]
+              : null
         }).promise;
 
         const annotations = await page.getAnnotations();
@@ -123,11 +117,8 @@
 
           if (
             annotation.subtype !== 'Link' ||
-            !annotation.rect ||
-            !annotation.url
-          ) {
-            continue;
-          }
+            !annotation.rect
+          ) continue;
 
           const rect =
             viewport.convertToViewportRectangle(annotation.rect);
@@ -139,26 +130,22 @@
 
           const link = document.createElement('a');
 
-          link.href = annotation.url;
-          link.target = '_self';
+          link.style.left = `${left}px`;
+          link.style.top = `${top}px`;
+          link.style.width = `${width}px`;
+          link.style.height = `${height}px`;
 
-          link.style.left = left + 'px';
-          link.style.top = top + 'px';
-          link.style.width = width + 'px';
-          link.style.height = height + 'px';
+          if (annotation.url) {
+            link.href = annotation.url;
+            link.target = '_self';
+          }
 
           linkLayer.appendChild(link);
         }
       }
     }
 
-    loadPDF().catch(error => {
-      console.error(error);
-
-      document.body.innerHTML =
-        '<div style="color:white;font-family:Arial;padding:30px;">Erreur de chargement du portfolio.</div>';
-    });
-
+    renderPDF();
   </script>
 
 </body>
